@@ -1,6 +1,7 @@
 <?php
 class Modman {
 
+    static $bModmandirVal = '';
     /**
      * the .modman directory is missing
      */
@@ -24,8 +25,20 @@ class Modman {
                 exit;
             }
 
+            shell_exec('cd ..');
+
             $bForce = in_array('--force', $aParameters, true);
             $bCopy  = in_array('--copy', $aParameters, true);
+            $bModmandirKey = array_search('--modmandir', $aParameters, true);
+            if($bModmandirKey){
+                self::$bModmandirVal = $aParameters[$bModmandirKey + 1];
+            }else{
+                self::$bModmandirVal = '';
+            }
+
+            echo '<pre>' . print_r($aParameters) . '</pre>';
+            echo var_dump($bModmandirKey);
+            echo var_dump(self::$bModmandirVal);
 
             switch ($aParameters[1]) {
                 case 'link':
@@ -164,11 +177,11 @@ class Modman_Command_All {
      * @throws Exception if modman directory does not exist
      */
     private function getAllModules() {
-        if (!file_exists(Modman_Command_Init::MODMAN_DIRECTORY_NAME)) {
+        if (!file_exists(Modman_Command_Init::getModmanDir(modman::$bModmandirVal))) {
             throw new Exception ('No modman directory found. You need to call "modman init" to create it.' . PHP_EOL
                 . 'Please consider the documentation below.', Modman::ERR_NOT_INITIALIZED);
         }
-        $aDirEntries = scandir(Modman_Command_Init::MODMAN_DIRECTORY_NAME);
+        $aDirEntries = scandir(Modman_Command_Init::getModmanDir(modman::$bModmandirVal));
         unset($aDirEntries[array_search('.', $aDirEntries)]);
         unset($aDirEntries[array_search('..', $aDirEntries)]);
         $iBaseDir = array_search(Modman_Command_Init::getBaseDirFile(), $aDirEntries);
@@ -195,11 +208,20 @@ class Modman_Command_All {
 class Modman_Command_Init {
 
     // directory name
-    const MODMAN_DIRECTORY_NAME = '.modman';
     const MODMAN_BASEDIR_FILE = '.basedir';
 
+    public static function getModmanDir($bModmandir)
+    {
+        if(!empty($bModmandir)){
+            $modmanDirectoryName = $bModmandir;
+        }else{
+            $modmanDirectoryName = '.modman';
+        }
+        return $modmanDirectoryName;
+    }
+
     public static function getBaseDirFile() {
-        return self::MODMAN_DIRECTORY_NAME . DIRECTORY_SEPARATOR . self::MODMAN_BASEDIR_FILE;
+        return self::getModmanDir(modman::$bModmandirVal) . DIRECTORY_SEPARATOR . self::MODMAN_BASEDIR_FILE;
     }
 
     /**
@@ -209,7 +231,7 @@ class Modman_Command_Init {
      * @param string
      */
     public function doInit($sDirectory, $sBaseDir = null) {
-        $sModmanDirectory = $sDirectory . DIRECTORY_SEPARATOR . self::MODMAN_DIRECTORY_NAME;
+        $sModmanDirectory = $sDirectory . DIRECTORY_SEPARATOR . self::getModmanDir(modman::$bModmandirVal);
         if (!is_dir($sModmanDirectory)){
             mkdir($sModmanDirectory);
         }
@@ -242,7 +264,7 @@ class Modman_Command_Link {
      */
     public function createSymlinks($bForce = false) {
         $sModuleName = basename($this->sTarget);
-        $sModuleSymlink = Modman_Command_Init::MODMAN_DIRECTORY_NAME . DIRECTORY_SEPARATOR . $sModuleName;
+        $sModuleSymlink = Modman_Command_Init::getModmanDir(modman::$bModmandirVal) . DIRECTORY_SEPARATOR . $sModuleName;
         if (is_link($sModuleSymlink)) {
             throw new Exception($sModuleName . ' is already linked');
         }
@@ -654,7 +676,10 @@ class Modman_Module_Symlink {
      * @return string
      */
     public function getModmanModuleSymlink(){
-        $sModmanModuleSymlink = Modman_Command_Init::MODMAN_DIRECTORY_NAME . DIRECTORY_SEPARATOR . $this->sModuleName;
+        $testdir = Modman_Command_Init::getModmanDir('magento_extensions');
+        echo "TestdiR: " . var_dump(modman::$bModmandirVal);
+
+        $sModmanModuleSymlink = Modman_Command_Init::getModmanDir(modman::$bModmandirVal) . DIRECTORY_SEPARATOR . $this->sModuleName;
         return $sModmanModuleSymlink;
     }
 
@@ -666,6 +691,7 @@ class Modman_Module_Symlink {
      */
     public function getModmanModuleSymlinkPath(){
         $sModmanModuleSymlink = $this->getModmanModuleSymlink();
+        echo '$sModmanModuleSymlink : ' . var_dump($sModmanModuleSymlink);
         if (!is_link($sModmanModuleSymlink) AND !is_dir($sModmanModuleSymlink)) {
             throw new Exception($this->sModuleName . ' is not initialized, please clone or link it');
         }
@@ -1061,7 +1087,7 @@ class Modman_Command_Clone {
      */
     private function getModuleFolderPath(){
         return getcwd() . DIRECTORY_SEPARATOR
-            . Modman_Command_Init::MODMAN_DIRECTORY_NAME . DIRECTORY_SEPARATOR
+            . Modman_Command_Init::getModmanDir(modman::$bModmandirVal) . DIRECTORY_SEPARATOR
             . $this->sFolderName;
     }
 
